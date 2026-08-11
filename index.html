@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#102440">
-  <title>Scanner NF-e • TMS Entregas</title>
+  <title>Scanner NF-e Rápido • TMS Entregas</title>
   <script src="./vendor/zxing-browser.min.js"></script>
   <style>
     :root{--navy:#102440;--blue:#173e6b;--gold:#d4a62d;--green:#16834f;--red:#b52232;--bg:#edf2f7;--text:#14253d;--muted:#67768b;--line:#d6e0eb}
@@ -46,14 +46,15 @@
         <label class="foto">📷 Fotografar o código<input id="fotoCodigo" type="file" accept="image/*" capture="environment"></label>
       </div>
     </main>
-    <footer><strong>Desenvolvido por Daian</strong> • Scanner TMS v1.7.0</footer>
+    <footer><strong>Desenvolvido por Daian</strong> • Scanner TMS v1.7.2 • Leitura rápida</footer>
   </section>
   <script>
     (()=>{
       'use strict';
       const $=id=>document.getElementById(id), params=new URLSearchParams(location.search);
       const retorno=validarRetorno(params.get('retorno')||'');
-      let leitor=null,controles=null,processando=false,lanterna=false,cameras=[],indice=0;
+      let leitor=null,controles=null,stream=null,detector=null,raf=0,processando=false,lanterna=false,cameras=[],indice=0;
+      let ultimoFrame=0,falhasNativas=0,modoLeitura='';
 
       document.addEventListener('DOMContentLoaded',()=>{
         $('voltar').onclick=cancelar;$('cancelar').onclick=cancelar;$('reiniciar').onclick=iniciar;
@@ -68,23 +69,75 @@
         if(!window.isSecureContext)return falhar('A câmera exige uma página HTTPS.');
         if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return falhar('Este navegador não disponibiliza acesso à câmera.');
         if(!window.ZXingBrowser)return falhar('O leitor não carregou. Verifique a internet e tente novamente.');
-        try{
-          cameras=await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
-          if(!cameras.length)throw new Error('Nenhuma câmera encontrada.');
-          const traseira=cameras.findIndex(c=>/back|rear|environment|traseira/i.test(c.label||''));
-          if(traseira>=0)indice=traseira;else indice=Math.min(indice,cameras.length-1);
-          await iniciarCamera();
-        }catch(e){falhar(erroCamera(e));}
+        try{await iniciarCamera('');}catch(e){falhar(erroCamera(e));}
       }
 
-      async function iniciarCamera(){
-        await parar();leitor=new ZXingBrowser.BrowserMultiFormatReader(undefined,{delayBetweenScanAttempts:90,delayBetweenScanSuccess:500});
-        const dispositivo=cameras[indice];
-        const constraints={audio:false,video:{deviceId:dispositivo?{exact:dispositivo.deviceId}:undefined,facingMode:dispositivo?undefined:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}};
-        controles=await leitor.decodeFromConstraints(constraints,$('video'),(resultado)=>{if(resultado&&!processando)concluir(resultado.getText());});
-        estado('Aponte para o código da DANFE. A leitura é automática.');
+      async function iniciarCamera(deviceId){
+        await parar();
+        const videoConfig=deviceId
+          ?{deviceId:{exact:deviceId},width:{ideal:960},height:{ideal:540},frameRate:{ideal:24,max:30}}
+          :{facingMode:{ideal:'environment'},width:{ideal:960},height:{ideal:540},frameRate:{ideal:24,max:30}};
+        stream=await navigator.mediaDevices.getUserMedia({audio:false,video:videoConfig});
+        $('video').srcObject=stream;await $('video').play();
+        await otimizarTrack();
+        cameras=await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+        const atual=trackAtual()&&trackAtual().getSettings().deviceId;
+        const pos=cameras.findIndex(c=>c.deviceId===atual);
+        if(pos>=0)indice=pos;
         $('trocar').disabled=cameras.length<2;
-        $('lanterna').classList.toggle('hidden',!(controles&&controles.switchTorch));
+        const cap=capacidadesTrack();$('lanterna').classList.toggle('hidden',!cap.torch);
+        await iniciarLeituraRapida();
+      }
+
+      async function otimizarTrack(){
+        const track=trackAtual();if(!track)return;
+        try{
+          const cap=track.getCapabilities?track.getCapabilities():{};
+          const advanced=[];
+          if(Array.isArray(cap.focusMode)&&cap.focusMode.includes('continuous'))advanced.push({focusMode:'continuous'});
+          if(advanced.length)await track.applyConstraints({advanced});
+        }catch(_e){}
+      }
+
+      async function iniciarLeituraRapida(){
+        falhasNativas=0;
+        if('BarcodeDetector' in window){
+          try{
+            const suportados=await BarcodeDetector.getSupportedFormats();
+            const formatos=['code_128','qr_code'].filter(f=>suportados.includes(f));
+            if(formatos.includes('code_128')){
+              detector=new BarcodeDetector({formats:formatos});modoLeitura='nativo';
+              estado('Leitor rápido ativo. Centralize o código da DANFE.');
+              raf=requestAnimationFrame(lerFrameNativo);return;
+            }
+          }catch(_e){}
+        }
+        await iniciarZxing();
+      }
+
+      async function lerFrameNativo(agora){
+        if(processando||modoLeitura!=='nativo'||!stream)return;
+        raf=requestAnimationFrame(lerFrameNativo);
+        if(agora-ultimoFrame<100||$('video').readyState<2)return;
+        ultimoFrame=agora;
+        try{
+          const codigos=await detector.detect($('video'));falhasNativas=0;
+          if(codigos&&codigos.length){
+            const valido=codigos.find(c=>extrairChave(c.rawValue));
+            if(valido)concluir(valido.rawValue);
+          }
+        }catch(_e){
+          falhasNativas++;
+          if(falhasNativas>=4){cancelAnimationFrame(raf);raf=0;detector=null;iniciarZxing().catch(e=>falhar(erroCamera(e)));}
+        }
+      }
+
+      async function iniciarZxing(){
+        modoLeitura='zxing';
+        leitor=new ZXingBrowser.BrowserMultiFormatReader(undefined,{delayBetweenScanAttempts:140,delayBetweenScanSuccess:350});
+        try{leitor.possibleFormats=[ZXingBrowser.BarcodeFormat.CODE_128,ZXingBrowser.BarcodeFormat.QR_CODE];}catch(_e){}
+        controles=await leitor.decodeFromVideoElement($('video'),resultado=>{if(resultado&&!processando)concluir(resultado.getText());});
+        estado('Leitor compatível ativo. Centralize o código da DANFE.');
       }
 
       function extrairChave(valor){const numeros=String(valor||'').replace(/\D/g,'');const achou=numeros.match(/\d{44}/);return achou?achou[0]:'';}
@@ -97,7 +150,7 @@
         processando=true;await parar();const nf=chave.slice(25,34).replace(/^0+(?=\d)/,'');
         estado('✓ NF '+nf+' reconhecida com segurança.','ok');sinal();
         let temOpener=false;try{temOpener=!!(window.opener&&!window.opener.closed);if(temOpener)window.opener.postMessage({tipo:'TMS_SCANNER_NFE',chave},'*');}catch(_e){temOpener=false;}
-        setTimeout(()=>{if(temOpener){try{window.close();}catch(_e){}return;}if(retorno)location.replace(retorno+(retorno.includes('?')?'&':'?')+'chaveNfe='+encodeURIComponent(chave));},520);
+        setTimeout(()=>{if(temOpener){try{window.close();}catch(_e){}return;}if(retorno)location.replace(retorno+(retorno.includes('?')?'&':'?')+'chaveNfe='+encodeURIComponent(chave));},120);
       }
 
       async function lerFoto(e){
@@ -106,9 +159,16 @@
         try{const url=URL.createObjectURL(arquivo);const r=await new ZXingBrowser.BrowserMultiFormatReader().decodeFromImageUrl(url);URL.revokeObjectURL(url);concluir(r.getText());}catch(_e){estado('Não consegui ler o código nessa foto. Aproxime, ilumine e tente novamente.','erro');}
       }
 
-      async function trocar(){if(cameras.length<2)return;indice=(indice+1)%cameras.length;estado('Trocando câmera…');try{await iniciarCamera();}catch(e){falhar(erroCamera(e));}}
-      async function alternarLanterna(){if(!controles||!controles.switchTorch)return;try{lanterna=!lanterna;await controles.switchTorch(lanterna);$('lanterna').textContent=lanterna?'🔦 Desligar':'🔦 Lanterna';}catch(_e){lanterna=false;estado('A lanterna não está disponível neste aparelho.','erro');}}
-      async function parar(){lanterna=false;if(controles){try{controles.stop();}catch(_e){}}controles=null;const stream=$('video').srcObject;if(stream)stream.getTracks().forEach(t=>t.stop());$('video').srcObject=null;}
+      async function trocar(){if(cameras.length<2)return;indice=(indice+1)%cameras.length;estado('Trocando câmera…');try{await iniciarCamera(cameras[indice].deviceId);}catch(e){falhar(erroCamera(e));}}
+      async function alternarLanterna(){const track=trackAtual();if(!track||!capacidadesTrack().torch)return;try{lanterna=!lanterna;await track.applyConstraints({advanced:[{torch:lanterna}]});$('lanterna').textContent=lanterna?'🔦 Desligar':'🔦 Lanterna';}catch(_e){lanterna=false;estado('A lanterna não está disponível neste aparelho.','erro');}}
+      function trackAtual(){return stream&&stream.getVideoTracks?stream.getVideoTracks()[0]:null;}
+      function capacidadesTrack(){try{return trackAtual()&&trackAtual().getCapabilities?trackAtual().getCapabilities():{};}catch(_e){return {};}}
+      async function parar(){
+        lanterna=false;modoLeitura='';detector=null;falhasNativas=0;ultimoFrame=0;
+        if(raf)cancelAnimationFrame(raf);raf=0;
+        if(controles){try{controles.stop();}catch(_e){}}controles=null;leitor=null;
+        if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;$('video').srcObject=null;
+      }
       async function cancelar(){await parar();if(retorno)location.replace(retorno);else history.length>1?history.back():window.close();}
       function validarRetorno(url){try{const u=new URL(url);return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname.endsWith('.googleusercontent.com'))?u.toString():'';}catch(_e){return '';}}
       function estado(texto,tipo){$('estado').textContent=texto;$('estado').className='estado'+(tipo?' '+tipo:'');}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#102440">
+  <title>Scanner NF-e • TMS Entregas</title>
+  <script src="./vendor/zxing-browser.min.js"></script>
+  <style>
+    :root{--navy:#102440;--blue:#173e6b;--gold:#d4a62d;--green:#16834f;--red:#b52232;--bg:#edf2f7;--text:#14253d;--muted:#67768b;--line:#d6e0eb}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}
+    body{display:grid;place-items:start center;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)}
+    .scanner-app{width:min(430px,100%);min-height:100dvh;background:#fff;box-shadow:0 15px 45px rgba(10,35,65,.16)}
+    header{display:flex;align-items:center;gap:11px;padding:13px 14px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff}
+    header button{width:38px;height:38px;border:1px solid rgba(255,255,255,.25);border-radius:11px;background:rgba(255,255,255,.1);color:#fff;font-size:22px;cursor:pointer}
+    header div{min-width:0}header strong,header small{display:block}header strong{font-size:16px}header small{margin-top:2px;color:#cbd8e7;font-size:11px}
+    main{padding:12px}.camera-box{position:relative;height:clamp(250px,42dvh,330px);overflow:hidden;border-radius:16px;background:#020812;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+    video{width:100%;height:100%;object-fit:cover;background:#020812}.moldura{pointer-events:none;position:absolute;left:6%;right:6%;top:50%;height:116px;transform:translateY(-50%);border:2px solid #fff;border-radius:14px;box-shadow:0 0 0 999px rgba(0,0,0,.27)}
+    .moldura:before,.moldura:after{content:"";position:absolute;width:30px;height:30px;border-color:var(--gold)}.moldura:before{left:-4px;top:-4px;border-left:5px solid var(--gold);border-top:5px solid var(--gold);border-radius:12px 0 0}.moldura:after{right:-4px;bottom:-4px;border-right:5px solid var(--gold);border-bottom:5px solid var(--gold);border-radius:0 0 12px}
+    .laser{position:absolute;left:5%;right:5%;top:13%;height:2px;background:#ff2848;box-shadow:0 0 9px #ff2848;animation:ler 1.8s ease-in-out infinite}@keyframes ler{50%{top:86%}}
+    .estado{min-height:42px;margin:10px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#f5f8fc;color:var(--muted);font-size:12px;text-align:center}.estado.ok{border-color:#9dd8b8;background:#e6f7ee;color:#106b3e}.estado.erro{border-color:#edb5bd;background:#fff0f2;color:#991e2d}
+    .acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.btn{min-height:44px;border:0;border-radius:12px;padding:10px;font-weight:800;cursor:pointer}.btn.primary{background:var(--blue);color:#fff}.btn.secondary{background:#e8eef5;color:var(--blue)}.btn.danger{background:#fff0f2;color:var(--red)}.btn:disabled{opacity:.48;cursor:not-allowed}
+    .manual{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.manual label{display:block;margin-bottom:7px;color:var(--muted);font-size:11px;font-weight:800}.manual-row{display:grid;grid-template-columns:1fr auto;gap:7px}.manual input{min-width:0;border:1px solid #c7d3e0;border-radius:11px;padding:11px 12px;font:inherit}.manual-row .btn{min-height:42px}
+    .foto{display:block;margin-top:8px;padding:10px;border:1px dashed #b7c5d4;border-radius:11px;background:#f8fafc;color:var(--blue);font-size:12px;font-weight:800;text-align:center;cursor:pointer}.foto input{display:none}
+    footer{padding:12px;color:#7b8797;font-size:10px;text-align:center}
+    .hidden{display:none!important}
+    @media(min-width:700px){body{place-items:center;padding:18px}.scanner-app{min-height:auto;border:1px solid var(--line);border-radius:20px;overflow:hidden}.camera-box{height:310px}}
+    @media(max-height:620px){.camera-box{height:235px}.manual{margin-top:7px;padding-top:7px}footer{padding:7px}}
+  </style>
+</head>
+<body>
+  <section class="scanner-app">
+    <header><button id="voltar" type="button" aria-label="Voltar">‹</button><div><strong>Escanear nota fiscal</strong><small>Código de barras ou QR Code da NF-e</small></div></header>
+    <main>
+      <div class="camera-box"><video id="video" autoplay muted playsinline></video><div class="moldura"><i class="laser"></i></div></div>
+      <div id="estado" class="estado" aria-live="polite">Preparando a câmera traseira…</div>
+      <div class="acoes">
+        <button id="lanterna" class="btn secondary hidden" type="button">🔦 Lanterna</button>
+        <button id="trocar" class="btn secondary" type="button">🔄 Trocar câmera</button>
+        <button id="reiniciar" class="btn primary hidden" type="button">Tentar novamente</button>
+        <button id="cancelar" class="btn danger" type="button">Cancelar</button>
+      </div>
+      <div class="manual">
+        <label for="chaveManual">CONTINGÊNCIA</label>
+        <div class="manual-row"><input id="chaveManual" inputmode="numeric" maxlength="44" placeholder="Cole a chave de 44 dígitos"><button id="usarManual" class="btn primary" type="button">Usar</button></div>
+        <label class="foto">📷 Fotografar o código<input id="fotoCodigo" type="file" accept="image/*" capture="environment"></label>
+      </div>
+    </main>
+    <footer><strong>Desenvolvido por Daian</strong> • Scanner TMS v1.7.0</footer>
+  </section>
+  <script>
+    (()=>{
+      'use strict';
+      const $=id=>document.getElementById(id), params=new URLSearchParams(location.search);
+      const retorno=validarRetorno(params.get('retorno')||'');
+      let leitor=null,controles=null,processando=false,lanterna=false,cameras=[],indice=0;
+
+      document.addEventListener('DOMContentLoaded',()=>{
+        $('voltar').onclick=cancelar;$('cancelar').onclick=cancelar;$('reiniciar').onclick=iniciar;
+        $('trocar').onclick=trocar;$('lanterna').onclick=alternarLanterna;$('usarManual').onclick=()=>concluir($('chaveManual').value);
+        $('chaveManual').onkeydown=e=>{if(e.key==='Enter')concluir(e.target.value);if(e.key==='Escape')e.target.value='';};
+        $('fotoCodigo').onchange=lerFoto;
+        iniciar();
+      });
+
+      async function iniciar(){
+        await parar();processando=false;estado('Preparando a câmera traseira…');$('reiniciar').classList.add('hidden');
+        if(!window.isSecureContext)return falhar('A câmera exige uma página HTTPS.');
+        if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return falhar('Este navegador não disponibiliza acesso à câmera.');
+        if(!window.ZXingBrowser)return falhar('O leitor não carregou. Verifique a internet e tente novamente.');
+        try{
+          cameras=await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+          if(!cameras.length)throw new Error('Nenhuma câmera encontrada.');
+          const traseira=cameras.findIndex(c=>/back|rear|environment|traseira/i.test(c.label||''));
+          if(traseira>=0)indice=traseira;else indice=Math.min(indice,cameras.length-1);
+          await iniciarCamera();
+        }catch(e){falhar(erroCamera(e));}
+      }
+
+      async function iniciarCamera(){
+        await parar();leitor=new ZXingBrowser.BrowserMultiFormatReader(undefined,{delayBetweenScanAttempts:90,delayBetweenScanSuccess:500});
+        const dispositivo=cameras[indice];
+        const constraints={audio:false,video:{deviceId:dispositivo?{exact:dispositivo.deviceId}:undefined,facingMode:dispositivo?undefined:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}};
+        controles=await leitor.decodeFromConstraints(constraints,$('video'),(resultado)=>{if(resultado&&!processando)concluir(resultado.getText());});
+        estado('Aponte para o código da DANFE. A leitura é automática.');
+        $('trocar').disabled=cameras.length<2;
+        $('lanterna').classList.toggle('hidden',!(controles&&controles.switchTorch));
+      }
+
+      function extrairChave(valor){const numeros=String(valor||'').replace(/\D/g,'');const achou=numeros.match(/\d{44}/);return achou?achou[0]:'';}
+      function validarChave(chave){if(!/^\d{44}$/.test(chave))return false;let soma=0,peso=2;for(let i=42;i>=0;i--){soma+=Number(chave[i])*peso;peso=peso===9?2:peso+1;}const resto=soma%11,dv=resto<2?0:11-resto;return dv===Number(chave[43]);}
+
+      async function concluir(valor){
+        if(processando)return;const chave=extrairChave(valor);
+        if(!chave)return estado('Código detectado, mas não contém uma chave NF-e de 44 dígitos.','erro');
+        if(!validarChave(chave))return estado('Chave NF-e inválida. Reposicione a câmera ou confira os números.','erro');
+        processando=true;await parar();const nf=chave.slice(25,34).replace(/^0+(?=\d)/,'');
+        estado('✓ NF '+nf+' reconhecida com segurança.','ok');sinal();
+        let temOpener=false;try{temOpener=!!(window.opener&&!window.opener.closed);if(temOpener)window.opener.postMessage({tipo:'TMS_SCANNER_NFE',chave},'*');}catch(_e){temOpener=false;}
+        setTimeout(()=>{if(temOpener){try{window.close();}catch(_e){}return;}if(retorno)location.replace(retorno+(retorno.includes('?')?'&':'?')+'chaveNfe='+encodeURIComponent(chave));},520);
+      }
+
+      async function lerFoto(e){
+        const arquivo=e.target.files&&e.target.files[0];if(!arquivo)return;
+        estado('Analisando a fotografia…');
+        try{const url=URL.createObjectURL(arquivo);const r=await new ZXingBrowser.BrowserMultiFormatReader().decodeFromImageUrl(url);URL.revokeObjectURL(url);concluir(r.getText());}catch(_e){estado('Não consegui ler o código nessa foto. Aproxime, ilumine e tente novamente.','erro');}
+      }
+
+      async function trocar(){if(cameras.length<2)return;indice=(indice+1)%cameras.length;estado('Trocando câmera…');try{await iniciarCamera();}catch(e){falhar(erroCamera(e));}}
+      async function alternarLanterna(){if(!controles||!controles.switchTorch)return;try{lanterna=!lanterna;await controles.switchTorch(lanterna);$('lanterna').textContent=lanterna?'🔦 Desligar':'🔦 Lanterna';}catch(_e){lanterna=false;estado('A lanterna não está disponível neste aparelho.','erro');}}
+      async function parar(){lanterna=false;if(controles){try{controles.stop();}catch(_e){}}controles=null;const stream=$('video').srcObject;if(stream)stream.getTracks().forEach(t=>t.stop());$('video').srcObject=null;}
+      async function cancelar(){await parar();if(retorno)location.replace(retorno);else history.length>1?history.back():window.close();}
+      function validarRetorno(url){try{const u=new URL(url);return u.protocol==='https:'&&(u.hostname==='script.google.com'||u.hostname.endsWith('.googleusercontent.com'))?u.toString():'';}catch(_e){return '';}}
+      function estado(texto,tipo){$('estado').textContent=texto;$('estado').className='estado'+(tipo?' '+tipo:'');}
+      function falhar(texto){estado(texto,'erro');$('reiniciar').classList.remove('hidden');}
+      function erroCamera(e){const t=String(e&&e.message||e||'');if(/permission|notallowed|denied|negad/i.test(t))return 'Permissão da câmera bloqueada. No navegador, permita a câmera para esta página.';if(/notfound|nenhuma/i.test(t))return 'Nenhuma câmera compatível foi encontrada.';if(/notreadable|trackstart/i.test(t))return 'A câmera está sendo usada por outro aplicativo.';return 'Não foi possível iniciar a câmera: '+t;}
+      function sinal(){try{navigator.vibrate&&navigator.vibrate([80,40,120]);const c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.frequency.value=930;g.gain.value=.07;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.12);}catch(_e){}}
+    })();
+  </script>
+</body>
+</html>

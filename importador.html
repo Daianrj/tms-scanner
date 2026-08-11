@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#102440">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Importador XML • TMS Entregas</title>
+  <link rel="stylesheet" href="./importador.css">
+</head>
+<body>
+<main class="app">
+  <header class="hero">
+    <div><small>MOTOR DE ALTA ESCALA</small><h1>Importador XML NF-e</h1><p>Workers + fila local + retomada automática</p></div>
+    <span id="estadoMotor">Pronto</span>
+  </header>
+
+  <section class="card">
+    <div class="title"><b>1</b><div><h2>Selecionar arquivos</h2><p>Escolha XMLs individuais ou ZIPs. Os arquivos são processados somente neste aparelho.</p></div></div>
+    <label class="drop" id="dropArea">
+      <input id="arquivos" type="file" accept=".xml,.zip,text/xml,application/xml,application/zip" multiple>
+      <strong>Selecionar XMLs ou ZIP</strong><span>Capacidade operacional: até 2.000 XMLs por sessão</span>
+    </label>
+    <div id="selecao" class="notice">Nenhum arquivo selecionado.</div>
+    <div class="actions"><button id="analisar" class="primary">Analisar arquivos</button><button id="cancelar" class="ghost" disabled>Cancelar</button><button id="limpar" class="danger">Limpar fila local</button></div>
+  </section>
+
+  <section class="card">
+    <div class="title"><b>2</b><div><h2>Processamento</h2><p>A interface permanece disponível enquanto os Workers leem os arquivos.</p></div></div>
+    <div class="progress"><div><i id="barra"></i></div><strong id="percentual">0%</strong></div>
+    <p id="etapa" class="etapa">Aguardando arquivos.</p>
+    <div class="kpis">
+      <article><b id="kTotal">0</b><span>Lidos</span></article><article><b id="kValidos">0</b><span>Válidos</span></article>
+      <article><b id="kDuplicados">0</b><span>Duplicados</span></article><article><b id="kErros">0</b><span>Com erro</span></article>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="title"><b>3</b><div><h2>Prévia operacional</h2><p>Busca por NF, cliente, pedido, CNPJ/CPF ou vendedor.</p></div></div>
+    <div class="toolbar"><input id="busca" placeholder="Buscar na prévia…"><button id="exportarCsv" class="ghost" disabled>Exportar CSV</button><button id="enviarTms" class="success" disabled>Preparar para o TMS</button></div>
+    <div class="table-wrap"><table><thead><tr><th>NF</th><th>Cliente</th><th>Pedido</th><th>Emissão</th><th>Valor</th><th>Peso</th><th>Cidade/UF</th><th>Vendedor</th></tr></thead><tbody id="tabela"><tr><td colspan="8" class="empty">Nenhum XML analisado.</td></tr></tbody></table></div>
+    <div class="pager"><button id="anterior" class="ghost">Anterior</button><span id="pagina">Página 1</span><button id="proxima" class="ghost">Próxima</button></div>
+  </section>
+  <footer><strong>Desenvolvido por Daian</strong><br>Importador TMS v1.8.0 • processamento local e rastreável</footer>
+</main>
+<script src="./db-indexed.js"></script>
+<script src="./xml-app.js"></script>
+</body>
+</html>

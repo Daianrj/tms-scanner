@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#102440">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow">
   <title>Scanner NF-e Rápido • TMS Entregas</title>
   <script src="./vendor/zxing-browser.min.js"></script>
   <style>
@@ -46,7 +48,7 @@
         <label class="foto">📷 Fotografar o código<input id="fotoCodigo" type="file" accept="image/*" capture="environment"></label>
       </div>
     </main>
-    <footer><strong>Desenvolvido por Daian</strong> • Scanner TMS v1.7.2 • Leitura rápida</footer>
+    <footer><strong>Desenvolvido por Daian</strong> • Scanner TMS v1.7.3 • Leitura rápida</footer>
   </section>
   <script>
     (()=>{
@@ -61,8 +63,15 @@
         $('trocar').onclick=trocar;$('lanterna').onclick=alternarLanterna;$('usarManual').onclick=()=>concluir($('chaveManual').value);
         $('chaveManual').onkeydown=e=>{if(e.key==='Enter')concluir(e.target.value);if(e.key==='Escape')e.target.value='';};
         $('fotoCodigo').onchange=lerFoto;
+        document.addEventListener('visibilitychange',gerenciarVisibilidade);
+        window.addEventListener('pagehide',parar);
         iniciar();
       });
+
+      function gerenciarVisibilidade(){
+        if(document.hidden){parar();return;}
+        if(!processando&&!stream)iniciar();
+      }
 
       async function iniciar(){
         await parar();processando=false;estado('Preparando a câmera traseira…');$('reiniciar').classList.add('hidden');

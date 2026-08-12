@@ -83,7 +83,7 @@
     let concluidos = 0;
     await new Promise((resolve) => {
       for (let i = 0; i < n; i++) {
-        const w = new Worker("./xml-worker.js?v=1.9.0");
+        const w = new Worker("./xml-worker.js?v=1.9.1");
         workers.push(w);
         w.onmessage = async (e) => {
           const m = e.data;
@@ -208,6 +208,8 @@
               "</td><td>" +
               data(r.dataEmissao) +
               "</td><td>" +
+              data(r.dataProgramada) +
+              "</td><td>" +
               moeda.format(r.valor || 0) +
               "</td><td>" +
               numero.format(r.pesoBruto || 0) +
@@ -218,7 +220,7 @@
               "</td></tr>",
           )
           .join("")
-      : '<tr><td colspan="8" class="empty">Nenhum resultado.</td></tr>';
+      : '<tr><td colspan="9" class="empty">Nenhum resultado.</td></tr>';
     $("pagina").textContent = "Página " + pagina + " de " + max;
     $("anterior").disabled = pagina <= 1;
     $("proxima").disabled = pagina >= max;
@@ -252,6 +254,10 @@
         "NF",
         "SERIE",
         "DATA_EMISSAO",
+        "DATA_SAIDA_ENTRADA",
+        "DATA_PROGRAMADA",
+        "HORA_SAIDA",
+        "ORIGEM_DATA_PROGRAMADA",
         "CLIENTE",
         "CPF_CNPJ",
         "ENDERECO",
@@ -291,6 +297,10 @@
     const m = {
       CHAVE_NFE: "chave",
       DATA_EMISSAO: "dataEmissao",
+      DATA_SAIDA_ENTRADA: "dataSaidaEntrada",
+      DATA_PROGRAMADA: "dataProgramada",
+      HORA_SAIDA: "horaSaida",
+      ORIGEM_DATA_PROGRAMADA: "origemDataProgramada",
       CPF_CNPJ: "cpfCnpj",
       NUMERO_VENDA: "numeroVenda",
       PESO_BRUTO: "pesoBruto",
@@ -378,3 +388,4 @@
     );
   }
 })();
+

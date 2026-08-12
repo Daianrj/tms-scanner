@@ -46,6 +46,22 @@ function numero(s) {
   return Number(s.replace(/[^\d.-]/g, '')) || 0;
 }
 function achar(s, regex) { const m = regex.exec(s || ''); return m ? m[1].trim() : ''; }
+function somenteDataISO(valor) {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(valor || '').trim());
+  return m ? m[1] : '';
+}
+function horaISO(valor) {
+  const m = /T(\d{2}:\d{2}:\d{2})/.exec(String(valor || '').trim());
+  return m ? m[1] : '';
+}
+function adicionarDiasISO(valor, dias) {
+  const iso = somenteDataISO(valor);
+  if (!iso) return '';
+  const partes = iso.split('-').map(Number);
+  const d = new Date(Date.UTC(partes[0], partes[1] - 1, partes[2]));
+  d.setUTCDate(d.getUTCDate() + Number(dias || 0));
+  return d.toISOString().slice(0, 10);
+}
 
 function parseNFe(xml, nomeArquivo) {
   const inf = bloco(xml, 'infNFe');
@@ -58,9 +74,16 @@ function parseNFe(xml, nomeArquivo) {
   if (!/^\d{44}$/.test(chave)) throw Error('Chave de acesso não encontrada.');
   const pedidos = todos(inf, 'xPed').filter(Boolean);
   const pedido = pedidos[0] || achar(infCpl, /N\s*Ped\.\s*(?:Venda)?\s*:\s*([\w./-]+)/i);
+  const dataEmissao = texto(ide, 'dhEmi') || texto(ide, 'dEmi');
+  const dataSaidaEntrada = texto(ide, 'dhSaiEnt') || texto(ide, 'dSaiEnt');
+  const dataProgramada = somenteDataISO(dataSaidaEntrada) || adicionarDiasISO(dataEmissao, 1);
   return {
     chave, nf: texto(ide, 'nNF'), serie: texto(ide, 'serie'),
-    dataEmissao: texto(ide, 'dhEmi') || texto(ide, 'dEmi'),
+    dataEmissao,
+    dataSaidaEntrada,
+    dataProgramada,
+    horaSaida: horaISO(dataSaidaEntrada),
+    origemDataProgramada: dataSaidaEntrada ? 'XML_SAIDA_ENTRADA' : 'EMISSAO_MAIS_1_DIA',
     cliente: texto(dest, 'xNome'), cpfCnpj: texto(dest, 'CNPJ') || texto(dest, 'CPF'),
     endereco: texto(endereco, 'xLgr'), numero: texto(endereco, 'nro'), complemento: texto(endereco, 'xCpl'),
     bairro: texto(endereco, 'xBairro'), cidade: texto(endereco, 'xMun'), uf: texto(endereco, 'UF'), cep: texto(endereco, 'CEP'),
@@ -72,3 +95,4 @@ function parseNFe(xml, nomeArquivo) {
     transportadora: texto(transporta, 'xNome'), origemXml: nomeArquivo
   };
 }
+

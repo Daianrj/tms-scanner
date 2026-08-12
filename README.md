@@ -1,4 +1,4 @@
-# Importador XML NF-e TMS v1.9.0
+# Importador XML NF-e TMS v1.9.1
 
 Motor estático para processar XMLs e ZIPs localmente com Web Workers e IndexedDB.
 
@@ -16,12 +16,18 @@ O `index.html` atual do scanner não deve ser apagado: este pacote acrescenta o 
 
 - chave de acesso, número e série da NF-e;
 - data e hora de emissão;
+- data/hora de saída ou entrada (`dhSaiEnt`/`dSaiEnt`);
+- data programada calculada pela saída/entrada do XML; quando ausente, emissão + 1 dia;
 - razão social e CNPJ/CPF do destinatário;
 - logradouro, número, complemento, bairro, cidade, UF e CEP;
 - número do pedido, número da venda e vendedor;
 - valor da nota em reais;
 - peso bruto, peso líquido e volumes;
 - transportadora e nome do XML de origem.
+
+## Regra da data operacional
+
+A emissão permanece como dado fiscal. A programação de entrega usa a data de saída/entrada informada pela NF-e. O fallback de emissão + 1 dia só é aplicado quando o XML não contém `dhSaiEnt` nem `dSaiEnt`.
 
 ## Capacidade testada
 

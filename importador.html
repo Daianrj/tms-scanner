@@ -11,7 +11,7 @@
 <body>
 <main class="app">
   <header class="hero">
-    <div><small>MOTOR DE ALTA ESCALA</small><h1>Importador XML NF-e</h1><p>Workers + fila local + retomada automática</p></div>
+    <div><small>MOTOR DE ALTA ESCALA</small><h1>Importador XML NF-e</h1><p>Workers + fila local + data operacional da NF-e</p></div>
     <span id="estadoMotor">Pronto</span>
   </header>
 
@@ -38,12 +38,13 @@
   <section class="card">
     <div class="title"><b>3</b><div><h2>Prévia operacional</h2><p>Busca por NF, cliente, pedido, CNPJ/CPF ou vendedor.</p></div></div>
     <div class="toolbar"><input id="busca" placeholder="Buscar na prévia…"><button id="exportarCsv" class="ghost" disabled>Exportar CSV</button><button id="enviarTms" class="success" disabled>Preparar para o TMS</button></div>
-    <div class="table-wrap"><table><thead><tr><th>NF</th><th>Cliente</th><th>Pedido</th><th>Emissão</th><th>Valor</th><th>Peso</th><th>Cidade/UF</th><th>Vendedor</th></tr></thead><tbody id="tabela"><tr><td colspan="8" class="empty">Nenhum XML analisado.</td></tr></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>NF</th><th>Cliente</th><th>Pedido</th><th>Emissão</th><th>Saída/entrega</th><th>Valor</th><th>Peso</th><th>Cidade/UF</th><th>Vendedor</th></tr></thead><tbody id="tabela"><tr><td colspan="9" class="empty">Nenhum XML analisado.</td></tr></tbody></table></div>
     <div class="pager"><button id="anterior" class="ghost">Anterior</button><span id="pagina">Página 1</span><button id="proxima" class="ghost">Próxima</button></div>
   </section>
-  <footer><strong>Desenvolvido por Daian</strong><br>Importador TMS v1.9.0 • conexão automática com Apps Script</footer>
+  <footer><strong>Desenvolvido por Daian</strong><br>Importador TMS v1.9.1 • conexão automática com Apps Script</footer>
 </main>
 <script src="./db-indexed.js"></script>
 <script src="./xml-app.js"></script>
 </body>
 </html>
+
